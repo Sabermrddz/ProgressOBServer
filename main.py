@@ -99,34 +99,34 @@ def sync_grades():
             logger.info("🧭 Baseline sync complete. Skipping notifications for existing grades.")
             bot_state.storage.mark_initialized()
         elif total_new > 0:
-        logger.info("🔔 Sending notifications for new grades...")
-        
-        for grade in new_exam_grades:
-            if bot_state.bot.send_new_grade_notification(grade, "exam"):
-                logger.info(f"✅ Notification sent for exam: {grade.get('mcLibelleAr')}")
-            else:
-                logger.error(f"❌ Failed to send notification for exam: {grade.get('mcLibelleAr')}")
+            logger.info("🔔 Sending notifications for new grades...")
             
-            # Small delay between notifications
-            time.sleep(0.5)
-        
-        for grade in new_continuous_grades:
-            if bot_state.bot.send_new_grade_notification(grade, "continuous"):
-                logger.info(f"✅ Notification sent for continuous: {grade.get('mcLibelleAr')}")
-            else:
-                logger.error(f"❌ Failed to send notification for continuous: {grade.get('mcLibelleAr')}")
+            for grade in new_exam_grades:
+                if bot_state.bot.send_new_grade_notification(grade, "exam"):
+                    logger.info(f"✅ Notification sent for exam: {grade.get('mcLibelleAr')}")
+                else:
+                    logger.error(f"❌ Failed to send notification for exam: {grade.get('mcLibelleAr')}")
+                
+                # Small delay between notifications
+                time.sleep(0.5)
             
-            # Small delay between notifications
-            time.sleep(0.5)
-    
-    # Reset failure counter on successful sync
-    bot_state.consecutive_failures = 0
-    bot_state.alert_sent = False
-    
-    # Log storage stats
-    stats = bot_state.storage.get_stats()
-    logger.info(f"📈 Storage stats: {stats}")
-    logger.info("=" * 60)
+            for grade in new_continuous_grades:
+                if bot_state.bot.send_new_grade_notification(grade, "continuous"):
+                    logger.info(f"✅ Notification sent for continuous: {grade.get('mcLibelleAr')}")
+                else:
+                    logger.error(f"❌ Failed to send notification for continuous: {grade.get('mcLibelleAr')}")
+                
+                # Small delay between notifications
+                time.sleep(0.5)
+        
+        # Reset failure counter on successful sync
+        bot_state.consecutive_failures = 0
+        bot_state.alert_sent = False
+        
+        # Log storage stats
+        stats = bot_state.storage.get_stats()
+        logger.info(f"📈 Storage stats: {stats}")
+        logger.info("=" * 60)
     
     except Exception as e:
         logger.error(f"❌ Sync error: {e}")
