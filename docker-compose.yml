@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  webetu-bot:
+    build: .
+    container_name: webetu-grades-bot
+    environment:
+      - WEBETU_USERNAME=${WEBETU_USERNAME}
+      - WEBETU_PASSWORD=${WEBETU_PASSWORD}
+      - DIA_ID=${DIA_ID}
+      - IND_ID=${IND_ID}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - CHECK_INTERVAL_MINUTES=15
+      - MAX_RETRIES=3
+      - RETRY_DELAY_SECONDS=5
+      - REQUEST_TIMEOUT_SECONDS=10
+      - LOG_LEVEL=INFO
+      - CONSECUTIVE_FAILURES_ALERT=3
+      - VERBOSE_MODE=false
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
