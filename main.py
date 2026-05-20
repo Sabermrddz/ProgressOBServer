@@ -58,46 +58,47 @@ def sync_grades():
     """
     Sync grades from WebEtu API
     """
-    logger.info("=" * 60)
-    logger.info(f"🔄 Starting grade synchronization at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    
-    # Ensure authentication
-    if not bot_state.api.ensure_authenticated():
-        logger.error("❌ Failed to authenticate")
-        handle_sync_failure()
-        return
-    
-    new_exam_grades = []
-    new_continuous_grades = []
-    
-    # Fetch exam grades
-    logger.info("📝 Fetching exam grades...")
-    success, exam_data = bot_state.api.get_exam_grades()
-    if success:
-        new_exams, count = bot_state.storage.save_exam_grades(exam_data)
-        new_exam_grades = new_exams
-        logger.info(f"✅ Exam grades: {count} new")
-    else:
-        logger.warning("⚠️ Failed to fetch exam grades")
-    
-    # Fetch continuous grades
-    logger.info("📝 Fetching continuous assessment grades...")
-    success, continuous_data = bot_state.api.get_continuous_grades()
-    if success:
-        new_continuous, count = bot_state.storage.save_continuous_grades(continuous_data)
-        new_continuous_grades = new_continuous
-        logger.info(f"✅ Continuous grades: {count} new")
-    else:
-        logger.warning("⚠️ Failed to fetch continuous grades")
-    
-    # Send notifications only after baseline sync
-    total_new = len(new_exam_grades) + len(new_continuous_grades)
-    logger.info(f"📊 Total new grades: {total_new}")
-    
-    if not bot_state.storage.is_initialized():
-        logger.info("🧭 Baseline sync complete. Skipping notifications for existing grades.")
-        bot_state.storage.mark_initialized()
-    elif total_new > 0:
+    try:
+        logger.info("=" * 60)
+        logger.info(f"🔄 Starting grade synchronization at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        
+        # Ensure authentication
+        if not bot_state.api.ensure_authenticated():
+            logger.error("❌ Failed to authenticate")
+            handle_sync_failure()
+            return
+        
+        new_exam_grades = []
+        new_continuous_grades = []
+        
+        # Fetch exam grades
+        logger.info("📝 Fetching exam grades...")
+        success, exam_data = bot_state.api.get_exam_grades()
+        if success:
+            new_exams, count = bot_state.storage.save_exam_grades(exam_data)
+            new_exam_grades = new_exams
+            logger.info(f"✅ Exam grades: {count} new")
+        else:
+            logger.warning("⚠️ Failed to fetch exam grades")
+        
+        # Fetch continuous grades
+        logger.info("📝 Fetching continuous assessment grades...")
+        success, continuous_data = bot_state.api.get_continuous_grades()
+        if success:
+            new_continuous, count = bot_state.storage.save_continuous_grades(continuous_data)
+            new_continuous_grades = new_continuous
+            logger.info(f"✅ Continuous grades: {count} new")
+        else:
+            logger.warning("⚠️ Failed to fetch continuous grades")
+        
+        # Send notifications only after baseline sync
+        total_new = len(new_exam_grades) + len(new_continuous_grades)
+        logger.info(f"📊 Total new grades: {total_new}")
+        
+        if not bot_state.storage.is_initialized():
+            logger.info("🧭 Baseline sync complete. Skipping notifications for existing grades.")
+            bot_state.storage.mark_initialized()
+        elif total_new > 0:
         logger.info("🔔 Sending notifications for new grades...")
         
         for grade in new_exam_grades:
@@ -126,6 +127,10 @@ def sync_grades():
     stats = bot_state.storage.get_stats()
     logger.info(f"📈 Storage stats: {stats}")
     logger.info("=" * 60)
+    
+    except Exception as e:
+        logger.error(f"❌ Sync error: {e}")
+        handle_sync_failure()
 
 
 def handle_sync_failure():
@@ -187,24 +192,24 @@ def initialize_bot():
     else:
         logger.warning("⚠️ Telegram connection failed - notifications may not work")
     
-    # Test WebEtu authentication
+    # Test WebEtu authentication (don't fail if network is slow)
     logger.info("🔐 Testing WebEtu authentication...")
-    if bot_state.api.authenticate():
-        logger.info("✅ WebEtu authentication successful")
-        
-        # Test if token works with any endpoint
-        logger.info("🧪 Testing token validity...")
-        success, info = bot_state.api.test_token_with_info()
-        if success:
-            logger.info("✅ Token is valid and working")
+    try:
+        if bot_state.api.authenticate():
+            logger.info("✅ WebEtu authentication successful")
+            
+            # Test if token works with any endpoint
+            logger.info("🧪 Testing token validity...")
+            success, info = bot_state.api.test_token_with_info()
+            if success:
+                logger.info("✅ Token is valid and working")
+            else:
+                logger.warning("⚠️ Token not working with info endpoints - may be grades access issue")
         else:
-            logger.warning("⚠️ Token not working with info endpoints - may be grades access issue")
-    else:
-        logger.error("❌ WebEtu authentication failed")
-        logger.error("❌ Please check your credentials")
-        return False
+            logger.warning("⚠️ WebEtu authentication failed - will retry during sync")
+    except Exception as e:
+        logger.warning(f"⚠️ WebEtu connection error: {e} - will retry during sync")
     
-    # Display configuration summary
     logger.info("=" * 60)
     logger.info("📋 Configuration Summary:")
     logger.info(f"  • API Base URL: {Config.WEBETU_BASE_URL}")
@@ -215,6 +220,7 @@ def initialize_bot():
     logger.info(f"  • Verbose Mode: {Config.VERBOSE_MODE}")
     logger.info("=" * 60)
     
+    # Bot initialized successfully (even if auth test failed - will retry during sync)
     return True
 
 
@@ -235,9 +241,12 @@ def main():
         logger.error("❌ Initialization failed. Exiting.")
         sys.exit(1)
     
-    # Perform initial sync
+    # Perform initial sync (optional - will retry on schedule)
     logger.info("\n🔄 Performing initial synchronization...")
-    sync_grades()
+    try:
+        sync_grades()
+    except Exception as e:
+        logger.warning(f"⚠️ Initial sync failed: {e} - will retry on schedule")
     
     # Schedule and run
     schedule_sync()
